@@ -1,0 +1,99 @@
+SECURITY IN VADMIN:
+-------------------
+
+Security was one of the primary concerns that formed the foundation
+of the Vadmin plugin.  The original author came up with a fairly solid
+model that is about as tight as security can be in a web application
+environment where password files need to be read and written by the
+web server process.
+
+
+
+SECURITY MODEL:
+---------------
+
+Vadmin stores all its sensitive data in an encrypted format. However,
+PHP must be able to decrypt this data in order to be able to operate
+its backend (such as vmailmgrd).  Here is the solution that was 
+implemented in Vadmin:
+
+We create a special include file for the web server, in which we 
+specify the directory where the SquirrelMail installation is located 
+(<Directory> directive).  Then we set two web server environment 
+variables for that directory.  One variable is called CRYPTO_HASH_LINE, 
+while the other is called MCRYPT_ALGO.  The first variable is a 
+symmetric key to be used by Vadmin when encrypting and decrypting the 
+stored data, and the second one is the name of the symmetric encryption 
+mcrypt algorithm to be used.  If MCRYPT_ALGO is set to "rc4_builtin," 
+then a built-in rc4 algorithm will be used.  Otherwise, any of the
+algorithms supplied by libmcrypt may be used (see the CRYPTO file for
+more details).
+
+After we finish with this include file, we set it to be owned by root
+and only accessible by root (chmod 0600).  When the web server starts, 
+it reads this file before it switches to whatever less-privileged user 
+it normally runs as ("apache", "nobody", "httpd", etc).  After the 
+startup is complete, this file can no longer be read by any web server
+process or other process running as non-root.
+
+The environment variables set in the include file are only accessible 
+to code that runs from the SquirrelMail directory, and Vadmin uses 
+them to encrypt data before writing it out to disk and to decrypt data 
+before use.  All the data saved by Vadmin at any time is encrypted,
+with the exception of domain login screen images, but the md5 hashes of 
+those images are stored in the preferences system, so Vadmin will know 
+when an image is replaced by some other process.
+
+In other words, unless your setup allows arbitrary code to be executed
+inside the SquirrelMail directory, third parties will not be able to
+decrypt or modify the contents of Vadmin's data storage files.
+
+[NOTE: Formerly only the Vadmin plugin directory itself needed to be 
+given access to these special environment variables, but now the entire 
+SquirrelMail directory must be used instead due to the architecture of 
+SquirrelMail.  If that makes you uneasy, make can make two <Directory> 
+directive entries, one pointing to SquirrelMail's /src directory, and 
+the other to SquirrelMail's /plugins/vadmin directory.  Both of them 
+must have the exact same values for both MCRYPT_ALGO and CRYPTO_HASH_LINE,
+and as long as that is the case, Vadmin will be fully functional.  This 
+significantly limits the amount of code that can *see* the crypto 
+settings, in case there is some overlooked vulnerability in the 
+SquirrelMail code itself, or in some plugin that allows arbitrary PHP 
+execution.]
+
+
+
+SUPERUSER:
+----------
+
+The Vadmin superuser is amicably called "elvis".  You can configure 
+your superusers in conf/vadmin.conf.  More than one super-user is 
+possible, as long as you separate them using comma-space.  For example:
+
+[auth]
+elvis = albus@hogwarts.jk, minerva@hogwarts.jk
+
+
+
+CROSS-ADMINS:
+-------------
+
+Cross-admins are superusers who can administer more than one domain 
+using only a single username.  This is useful for administrators who 
+don't want to create a login for themselves for every domain they 
+administer.
+
+Depending on the value you have set for the "[auth]->method" setting 
+in conf/vadmin.conf, cross-admins can either log in using their mailbox 
+password, or a domain password per each domain they select.  Both 
+methods have their shortcomings and advantages, so it's up to you as to 
+which one to choose.  Authentication by mailbox password is more 
+convenient, but is more easily abused, while authentication by domain 
+password is less convenient, but limits the "blast area" in case an
+intruder gets ahold of one of the passwords (however, in return, it 
+provides cross-admins with system passwords, which introduces a whole 
+different set of concerns).
+
+Elvis (superusers) can set up cross-admins via the vadmin web 
+interface.
+

@@ -1,0 +1,21 @@
+Sitemap: http://otih-oith.us.to/sitemap.txt
+User-agent: *
+Disallow: /secret
+Allow: /*
+User-Agent: Googlebot
+Disallow: /secret 
+Allow: /*
+User-Agent: Googlebot-Mobile
+Disallow: /secret 
+Allow: /*
+User-Agent: Googlebot-Image
+Disallow: /secret 
+Allow: /*
+User-Agent: Mediapartners-Google
+Disallow: /secret 
+Allow: /*
+User-Agent: Adsbot-Google
+Disallow: /secret 
+Allow: /*
+Sitemap: http://otih-oith.us.to/sitemap.txt
+

@@ -1,0 +1,230 @@
+# Makefile for vadmin_auth, part of Vadmin
+# See README for background information
+#
+
+
+
+### SERVER MANAGER SCRIPT OPTIONS ###
+
+
+# The name of your single entry point to
+# your server management interface.  This
+# should include the full (non-relative if
+# possible) path.
+#
+#
+MANAGER_SCRIPT=/tmp/system_manager.sock
+
+
+# whitespace-separated default list of command-line
+# options that should be handed to the management
+# script in addition to those that come from PHP
+#
+MANAGER_OPTIONS=--batch
+
+
+
+### GENERAL OPTIONS ###
+
+
+# change this to match the group your HTTPD server runs as.
+# The resulting binary will be owned by this group.
+#
+HTTPD_GROUP=apache
+
+
+# If you are having problems connecting, recompile with this 
+# flag changed and send the output to the mailing list.
+#
+CFLAGS=
+#CFLAGS=-DDEBUG
+
+
+# Use the following argument to tell the linker to make
+# a statically linked binary
+#
+#LFLAGS=
+LFLAGS=-static 
+
+
+# Edit the location of the squirrelmail config file here.
+# If given as relative, should be relative to the main
+# Vadmin directory.
+#
+#SQUIRRELMAILCONFIGFILE=/usr/share/squirrelmail/config/config.php
+SQUIRRELMAILCONFIGFILE=../../config/config.php
+
+
+# The location for the Vadmin conf directory. 
+# If given as relative, should be relative to the main
+# Vadmin directory.
+#
+VADMINCONFIG=../../plugins/vadmin/conf
+
+
+# The name of the main Vadmin configuration file.
+# This usually won't have to change.
+#
+VADMINCONFIGFILE=vadmin.conf.php
+
+
+# The path to the PHP executable on your system.
+# This usually won't have to change, but could
+# be something such as /usr/local/bin/php instead.
+#
+PHPPATH=/usr/bin/php
+
+
+# This setting should point to the correct implementation for accessing
+# vadmin storage backend.  Your choice here is limited to the implemented
+# storage checking modules in this directory, which are listed below.
+# You also must be very careful to match this with your main storage
+# settings in the main vadmin.conf file ([storage] type and flavor
+# settings therein).  Current implementations are:
+#
+#   GDBM:                        vadmin_storage_gdbm.o
+#   DB (includes at least DB4):  vadmin_storage_db.o
+#
+#VADMINSTORAGE=vadmin_storage_db.o
+VADMINSTORAGE=vadmin_storage_gdbm.o
+
+
+# Whatever library is needed for your chosen dba implementation
+# (see VADMINSTORAGE above).  Current implementations (although
+# it is possible the library names on your system may differ) are:
+#
+#   GDBM:                        -lgdbm
+#   DB (includes at least DB4):  -ldb-4.3
+#
+# Berkeley DB libraries might differ on some systems, either
+# between versions ("-ldb", "-ldb-4", "-ldb-4.3", etc.) or
+# related/required libraries (for example, FreeBSD may need
+# "-pthread -lc_r" or "-pthread -xlc_r", or some Solaris systems
+# may require "-mt" or "-lthread").  Check your system lib
+# directories for the requisite libraries and/or consult the
+# Berkeley DB documentation (see question 4 here):
+#
+# http://www.oracle.com/technology/documentation/berkeley-db/db/ref/build_unix/notes.html
+#
+# See also the architecture-specific FAQ page for your system here:
+#
+# http://www.oracle.com/technology/documentation/berkeley-db/db/ref/toc.html#build_unix
+#
+#DB_LFLAGS=-ldb
+#DB_LFLAGS=-ldb-4.3
+#DB_LFLAGS=-ldb-4.3 -pthread -lc_r
+#DB_LFLAGS=-ldb-4.3 -lpthread
+DB_LFLAGS=-lgdbm
+
+
+
+### C-CLIENT OPTIONS ###
+#
+# vadmin_auth validates usernames and passwords with the c-client library 
+# from UW or our own homegrown variation thereof.  The UW library is part 
+# of pine and UW IMAP and is installed separately on many Linux systems.
+# See http://www.washington.edu/imap/ for more information.
+
+
+# This line selects the client code for credentials checking.  The 
+# checkcreds_cclient library from UW is much more robust and mature 
+# but can be harder to compile.  The checkcreds_imap choice is home 
+# grown, but easier to compile.  We recommend you try checkcreds_cclient 
+# first.
+#
+#CHECKCREDS=checkcreds_imap.o
+CHECKCREDS=checkcreds_cclient.o
+
+
+# You may need to adjust the following line.  The commented-out sample below
+# is for use when you have manually downloaded the UW-IMAP c-client library
+# and placed it in a subdirectory below vadmin/includes/suid (in this case
+# called "imap-2007d") (Don't forget to compile it too if you downloaded the
+# source!).  You should be able to successfully compile with LIBS being empty 
+# when using CHECKCREDS=checkcreds_imap.o above.
+#
+LIBS=/usr/lib/c-client.a -lssl -lpam -L/usr/kerberos/lib/ -lgssapi_krb5 -lcrypt -lkrb5 -lresolv -lcom_err -ldl -lz -lcrypto -lk5crypto
+#LIBS=../../../../plugins/vadmin/includes/suid/imap-2007d/c-client/c-client.a -lssl -lpam -L/usr/kerberos/lib/ -lgssapi_krb5 -lcrypt -lkrb5 -lresolv -lcom_err -ldl -lz -lcrypto -lk5crypto
+#
+# FreeBSD:
+#LIBS=-L/usr/local/lib -lc-client4 -lssl -lpam -lgssapi -lcrypt -lkrb5 -lcom_err -lz -lcrypto -lopie -lradius -lskey -ltacplus -lutil -lmd
+#
+# Solaris(?):
+#LIBS=-lsocket -lnsl
+#
+# Only when CHECKCREDS=checkcreds_imap.o:
+#LIBS=
+
+
+# This directory should contain a file named mail.h  The commented-out
+# sample below is for use when you have manually downloaded the UW-IMAP
+# c-client library and placed it in a subdirectory below vadmin/includes/suid.
+# When using CHECKCREDS=checkcreds_imap.o above, you can comment out
+# all of these lines.
+#
+I=/usr/include/imap
+#I=../../../../plugins/vadmin/includes/suid/imap-2007d/c-client
+#
+# FreeBSD:
+#I=/usr/local/include/c-client
+
+
+# These settings should work fine.  See below if you need more 
+# than this (and comment this out!)
+#
+CCLIENT_CFLAGS=-I$I '-DMAIL_H="mail.h"' '-DLINKAGE_C="linkage.c"' -DIMAP_TIMEOUT=2
+
+
+# vadmin_auth uses c-client's mailbox naming conventions to control how the 
+# connection to the IMAP server will happen. The standard mailbox name will 
+# look like: {localhost/imap4/user=.../norsh}
+# See http://www.washington.edu/imap/documentation/naming.txt.html for more details.
+# You can add more flags, and/or remove the /norsh flag, by uncommenting the 
+# line below.
+#
+# The default settings (uncomment and edit if necessary)
+#
+#CCLIENT_CFLAGS=-I$I '-DMAIL_H="mail.h"' '-DLINKAGE_C="linkage.c"' -DIMAP_TIMEOUT=2 -DMAILBOXFLAGS=/norsh
+
+
+# The /notls flag will work around SSL problems. 
+#
+#CCLIENT_CFLAGS=-I$I '-DMAIL_H="mail.h"' '-DLINKAGE_C="linkage.c"' -DIMAP_TIMEOUT=2 -DMAILBOXFLAGS=/norsh/notls
+
+
+### END OF C-CLIENT OPTIONS ###
+
+
+### END OF CONFIGURABLE OPTIONS ###
+
+
+VADMIN_AUTH_CFLAGS=-DSQUIRRELMAILCONFIGFILE='"$(SQUIRRELMAILCONFIGFILE)"' -DVADMINCONFIG='"$(VADMINCONFIG)"' -DVADMINCONFIGFILE='"$(VADMINCONFIGFILE)"' -DPHPPATH='"$(PHPPATH)"' -DMANAGER_SCRIPT='"$(MANAGER_SCRIPT)"' -DMANAGER_OPTIONS='"$(MANAGER_OPTIONS)"'
+
+
+all: vadmin_auth
+
+vadmin_auth: vadmin_auth.o Makefile $(CHECKCREDS) $(VADMINSTORAGE)
+	gcc -o vadmin_auth vadmin_auth.o $(CHECKCREDS) $(VADMINSTORAGE) $(LIBS) $(LFLAGS) $(MCRYPT_LFLAGS) $(DB_LFLAGS)
+	chown root:$(HTTPD_GROUP) vadmin_auth
+	chmod 4750 vadmin_auth
+
+vadmin_auth.o: vadmin_auth.c Makefile
+	gcc -c vadmin_auth.c $(CFLAGS) $(VADMIN_AUTH_CFLAGS) $(MCRYPT_CFLAGS)
+
+checkcreds_cclient.o: checkcreds_cclient.c Makefile
+	gcc -c checkcreds_cclient.c $(CFLAGS) $(CCLIENT_CFLAGS)
+
+checkcreds_imap.o: checkcreds_imap.c Makefile
+	gcc -c checkcreds_imap.c $(CFLAGS) $(CCLIENT_CFLAGS)
+
+vadmin_storage_gdbm.o: vadmin_storage_gdbm.c Makefile
+	gcc -c vadmin_storage_gdbm.c $(CFLAGS)
+
+vadmin_storage_db.o: vadmin_storage_db.c Makefile
+	gcc -c vadmin_storage_db.c $(CFLAGS)
+
+test: test.sh vadmin_auth
+	sh test.sh
+
+clean:
+	-rm -f *.o *~ test_creds 

@@ -1,0 +1,199 @@
+Vadmin plugin for SquirrelMail
+------------------------------
+
+Vadmin is a control panel system that fits inside of SquirrelMail.
+It comes with features that allow system administrators to create,
+manage and delete user accounts amongst many other things.  It
+can also be extended to manage any other aspects of the environment
+in which it is installed.
+
+Vadmin is designed to support any number of system architectures
+by means of configurable backends.  Currently, backends for VMailMgr
+and SQL (database) backed systems are included, and a proprietary
+local user accounts backend is also available.  Other backends
+may be added in the future.
+
+Vadmin incorporates tight security features, encryption, multiple
+levels of administrators, and many convenient options to make the
+life of an administrator easier.  It also provides users with
+optional helpful features such as password change, auto-responder
+and mail forwarding systems.
+
+This plugin also allows domain customizations so login pages look
+different depending on which URI it is being accessed at.  This
+makes it very convenient to have just one SquirrelMail install
+per every virtual domain.
+
+Please note that you may always obtain the most recent Vadmin code
+by visiting its project page at:
+
+http://sourceforge.net/projects/vadmin-plugin/
+
+
+
+LICENSE:
+--------
+
+This plugin is released under the GNU General Public
+License (see COPYING for details).
+
+
+
+COPYRIGHT:
+----------
+
+Copyright(c) 2002-2003 Konstantin Riabitsev
+Copyright(c) 2003-2010 Paul Lesniewski <paul@squirrelmail.org>
+
+
+
+DONATIONS:
+----------
+
+If you or your company make regular use of this software,
+please consider supporting Open Source development by
+donating to the authors or inquire about hiring them to
+consult on other projects.  Donation/wish list links for
+the author(s) are as follows:
+
+Paul Lesniewski: https://squirrelmail.org/donate_paul_lesniewski.php
+
+
+
+CONTRIBUTIONS/OTHER BACKENDS:
+-----------------------------
+
+  * A proprietary local user accounts backend for Vadmin is available
+    from Paul Lesniewski <paul@squirrelmail.org>.  Inquiries regarding
+    this backend should have a subject line that easily identifies
+    them as such.
+
+  * There are many guides on the Internet that explain how to set up
+    systems that are compatible with Vadmin.  One such guide that
+    makes use of VMailMgr (and therefore the corresponding backend
+    in Vadmin) was written by one of Vadmin's authors (although it
+    has not been updated since 2005, so may be dated).
+
+    See Konstantin's Qmail-Vmailmgr-Courier-SquirrelMail Guide 
+    here:  http://qvcs-guide.sf.net/
+
+
+
+INSTALLATION and REQUIREMENTS:
+------------------------------
+
+See the INSTALL file.
+
+
+
+TROUBLESHOOTING:
+----------------
+
+See the TROUBLESHOOTING file.
+
+
+
+USAGE:
+------
+
+Log into your SquirrelMail system as the user specified as "elvis"
+in your Vadmin configuration file conf/vadmin.conf.
+
+Once you log in, click on "Options".  Amongst the options given 
+there should be an "Administrator Interface" section which you
+should select.
+
+Vadmin should present you with the list of domains that it got
+from your Vadmin backend.  Choose one and enter the password. 
+Vadmin will present you with the option to enable the domain, 
+from whence on, usability should be self-explanatory.
+
+
+
+EXTENDING:
+----------
+
+Vadmin introduces a few of its own hooks into SquirrelMail, which 
+you are free to use for your own purposes.  They are used like any
+other SquirrelMail plugin hook.  Please see the main SquirrelMail
+documentation about building plugins.  Currently, the hooks available
+are:
+
+Hook Name                           Found In(*)                    Called With
+---------                           -----------                    -----------
+vadmin_after_user_details_mailbox   modules/admin/accounts.mod     concat_hook_function
+      Arguments Passed: Array($userid, $domain, $secret, $desig)
+
+vadmin_user_details_extra_section   modules/admin/accounts.mod     concat_hook_function
+      Arguments Passed: Array($userid, $domain, $secret, $desig)
+
+vadmin_create_account_before        modules/admin/accounts.mod     do_hook
+      Arguments Passed: Array($vadmin_domain, $secret, $desig, $userid, $user_domain, $password, $forwards)
+
+vadmin_change_account_before        modules/admin/accounts.mod     do_hook
+      Arguments Passed: Array($vadmin_domain, $secret, $desig, $userid, $user_domain, $field, $new_value)
+
+vadmin_delete_account_before        modules/admin/accounts.mod     do_hook
+      Arguments Passed: Array($vadmin_domain, $secret, $desig, $userid, $user_domain)
+
+vadmin_menu_make_linkmenu           includes/vadmin_functions.php  do_hook
+      Arguments Passed: $menu_contents array                       (do_hook_function for
+                                                                   SquirrelMail versions
+                                                                   below 1.5.2)
+
+vadmin_domain_perms_menu            modules/admin/domprefs.php     do_hook
+      Arguments Passed: Array($vadmin_domain, $desig)              (do_hook_function for
+                                                                   SquirrelMail versions
+                                                                   below 1.5.2)
+
+vadmin_domain_perms_menu_submit     modules/admin/domprefs.php     do_hook
+      Arguments Passed: Array($vadmin_domain, $desig)              (do_hook_function for
+                                                                   SquirrelMail versions
+                                                                   below 1.5.2)
+
+vadmin_module_directories           vadmin_main.php                concat_hook_function
+
+
+* Paths are relative to Vadmin home directory.
+
+
+
+SUPPORT:
+--------
+
+Before looking for help elsewhere, please try to help yourself:
+
+  * Read the TROUBLESHOOTING document.
+
+  * Make sure the plugin is configured correctly by browsing to
+    http://your-squirrelmail-location/src/configtest.php
+
+  * Look to see if others have already asked about the same issue.
+    There are tips and links for the best places to do this in
+    the SquirrelMail mailing list posting guidelines:
+    http://squirrelmail.org/wiki/MailingListPostingGuidelines
+    You should also try Google or some other search engine.
+
+  * If you cannot find any information about your issue, please
+    first mail your help request to the squirrelmail-plugins
+    mailing list.  Information about it can be found here:
+    http://lists.sourceforge.net/mailman/listinfo/squirrelmail-plugins
+    You MUST read the mailing list posting guidelines (see above)
+    and include as much information about your issue (and your
+    system) as possible.  Including configtest output, any debug
+    output, the plugin configuration settings you've made and
+    anything else you can think of to make it easier to diagnose
+    your problem will get you the most useful responses.  Inquiries
+    that do not comply with the posting guidelines are liable to
+    be ignored.
+
+  * Since setup and configuration of this plugin can be
+    particularly complex, you might want to consider hiring one
+    of the authors to help you.  You can contact them as follows:
+       Paul Lesniewski <paul@squirrelmail.org>
+    When contacting the authors for paid support, please specify
+    that you are seeking paid support in the subject of your email.
+    Free support requests will be redirected per above.
+
+
+

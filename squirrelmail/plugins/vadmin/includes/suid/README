@@ -1,0 +1,161 @@
+Vadmin Auth System Management Backend Proxy/Gateway
+===================================================
+
+
+Description
+===========
+
+This directory contains the source code for vadmin_auth, 
+a setuid binary that Vadmin can use in order to proxy calls
+to a system management backend of your choosing.  It
+includes strong security checks that try to guarantee that
+all calls from the web server to your system management
+script are allowable and have not been spoofed by some other
+web page.  It verifies the domain password, checks that the
+current user is a legal Vadmin administrator, checks that the
+user has a valid IMAP login, and uses the same Vadmin
+cryptography features that are a part of the main PHP code.
+Only after all these checks have succeeded does it pass
+execution (along with any arguments it was given) to a script
+or application of your choosing, called with root (superuser)
+privileges.
+
+
+
+Compilation Prerequisites
+=========================
+
+* A C compiler
+
+* Root access.
+
+* OPTIONAL: The c-client library. This is a UW-IMAP library; 
+  if you do not use UW-IMAP, you may download the library from 
+  http://www.washington.edu/imap/  
+  As of December 2008, the download link is:
+  ftp://ftp.cac.washington.edu/mail/imap.tar.Z  
+  The Makefile also has more details, including tips on
+  how to compile with a manually downloaded and compiled
+  version of this library.  Vadmin contains a home-grown 
+  alternative to this library if you cannot get the c-client 
+  library to compile, but we recommend you at least try 
+  c-client first, since it is much more robust and mature.
+  Make your choice between the two in the Makefile with
+  the CHECKCREDS setting.
+
+
+
+Compilation 
+===========
+
+To compile vadmin_auth, copy the example Makefile, then
+edit it, changing any settings that don't already match 
+your system, and then run "make".
+
+  # cp Makefile_example Makefile
+  # vi Makefile
+  # make
+
+If everything compiles without errors, you should now
+test to see if it will work by running "make test":
+
+  # make test
+
+Note that currently, on some systems this test will 
+fail with a "Bad Credentials" error the first time
+it is run even when it is compiled correctly.  If
+you get a "Bad Credentials" error when testing, please
+make sure to try "make test" more than once.
+
+If all tests work, you'll now want to install the script
+by moving it to your system-standard executables location.
+A non-standard alternative is to leave it here in this
+directory, which will work, but is not recommended.
+
+  # mv vadmin_auth /usr/local/sbin
+
+
+
+Troubleshooting
+===============
+
+* When compiling, I get an error similar to "mcrypt.h: No such file or 
+  directory"
+
+  You may need to install libmcrypt-devel or similar package that
+  contains the mcrypt source files.
+
+* When compiling, I get an error similar to "undefined reference to
+  `pthread_mutex...'"
+
+  Your DB_LFLAGS setting in Makefile is insufficient for your system.
+  Check the description in Makefile (you may need to add something such
+  as "-pthreads" to DB_LFLAGS)
+
+* When testing vadmin_auth, I don't get any output or the information given
+  is unclear.
+
+  Change CFLAGS so that debugging is enabled in Makefile and then recompile
+  and test again.  Remember to turn off debug mode when everything works and
+  you are running in production mode.
+
+* When I try to use the Vadmin plugin in my browser, I get errors when
+  I try to add, change or delete user accounts.
+
+  Read the error number if provided in the error message and find the 
+  explanation below.
+
+* I am getting error 4, "vadmin_auth - setgid: Operation not permitted"
+
+  The binary is not setuid root.  It should have had its permissions set
+  for you when you compiled it, but if not, you can run this command as
+  root: "sudo chmod 4750 vadmin_auth".
+
+* I am getting error 126
+
+  You didn't change the group (HTTPD_GROUP) in the Makefile to the correct
+  value.  The group should be set for you when you compile it, but if
+  not, you can run this command as root: 
+  "sudo chgrp apache filtercmd", replacing "apache" with the group that
+  your web server runs under (which is specified in the web server
+  configuration).
+
+* I am getting error 10, "Can't read imap server from configfile"
+
+  vadmin_auth expects to find the squirrelmail configuration file in a certain 
+  place (specified in the Makefile).  Did the squirrelmail/config.php file move?
+
+* I am getting error 12, "Bad credentials"
+
+  This means the IMAP connection is not working (or your username/password
+  are not correct).  First, ensure you didn't make a typo when entering your
+  username or password.  Otherwise, compile vadmin_auth with debugging on
+  and run test.sh (make test) to find out why.  This can sometimes be fixed
+  by adding options such as /notls to the MAILBOXNAME setting in the Makefile.
+
+* I am getting error 13, "Can't verify credentials, IMAP not supported by library"
+
+  This error message means that the c-client library was mis-compiled -- you
+  will have to either compile the c-client library by hand or find a working
+  version.
+
+* I am getting errors about missing "mail.h", but it is in the UW-IMAP c-client
+  package that I downloaded.
+
+  Did you compile the c-client code first?  Go into the directory you unpacked
+  it into and read the README file for instructions on how to compile it.
+
+* I get "child didn't exec: No such file or directory" when testing vadmin_auth.
+
+  Make sure the path to PHP in the Makefile (see PHPPATH) is correct.  You
+  can run "which php" (without the quotes) on the command line and compare
+  it to the value you have set for PHPPATH in the Makefile.
+
+* I am getting error 7 (or perhaps 29), "Bad magic number"
+
+  The database flavor in the main Vadmin configuration does not match the
+  VADMINSTORAGE in your Makefile.  The correct matches are explained in
+  Makefile_example.
+
+
+

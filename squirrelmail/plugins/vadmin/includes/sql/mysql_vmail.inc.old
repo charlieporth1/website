@@ -1,0 +1,1521 @@
+<?php
+
+/**
+  * vmail.inc replacement for MySQL
+  *
+  * Author: Paul Lesniewski <pdontthink@angrynerds.com>
+  *
+  * License: GNU GPL
+  *
+  * Not being used.  I originally wrote this when attempting a 
+  * MySQL backend for an older version of the vadmin plugin that 
+  * was subsequently rewritten.  The new vadmin plugin makes it
+  * easier to avoid this mess (er, or maybe it's just that my new
+  * approach is hopefully easier and more configurable), but I'm 
+  * keeping this just in case.
+  *
+  * Also note that I don't think all functions herein are 
+  * completed yet...
+  *
+  */
+
+
+
+
+//
+// Replacement for vmail.inc, typically part of the vmailmgr software
+// package.  This file duplicates the same functionality for a MySQL
+// based email installation in combination with the Vadmin plugin for
+// SquirrelMail.
+//
+
+
+// ######################
+// TODO: IMPORTANT: the installer should run make clean to remove the
+//     extra copy of the gogetem executable from the source dir
+//
+// TODO:  for the suid C wrapper, need to check
+//     uid > 500 and uid matches ownership of any dirs we are tampering with
+// ######################
+
+
+
+// executes all core commands
+//
+// return value is an array,
+// the first array index contains
+// the return code: 0 if no errors,
+// non-zero if there were any errors
+// (in which case, the next array 
+// index contains any error messages
+// generated)
+//
+function vm_daemon_raw($args)
+{
+
+   $command = $args[0];
+
+
+
+   //
+   // process each possible command
+   //
+
+
+   
+   // LISTDOMAIN
+   //
+   //   from what I can gather, this command returns
+   //   a list of all users in this domain and a set
+   //   of standard attributes compressed into one string
+   //  
+   //   arguments:
+   //     0 : command
+   //     1 : domain
+   //     2 : domain password
+   //
+   // LOOKUP
+   //
+   //   does the same as LISTDOMAIN, but just gets info
+   //   on one user
+   //
+   //   arguments:
+   //     0 : command
+   //     1 : domain
+   //     2 : userid
+   //     3 : domain password
+   //
+   if ($command == 'listdomain' || $command == 'lookup')
+   {
+
+      $domain = $args[1];
+      $user = '';
+
+      if ($command == 'listdomain')
+      {
+         $password = $args[2];
+      }
+      else if ($command == 'lookup')
+      {
+         $user = $args[2];
+         $password = $args[3];
+      }
+
+
+      // fake the password check:
+      //
+      $passCheck = checkDomainPassword($domain, $password);
+      if ($passCheck[0])
+         return $passCheck;
+
+
+      // get MySQL fields, tables, etc
+      //
+      list($dbCon, $errorMsg) = vadmin_get_mysql_connection();
+      $usersTable = vadmin_get_mysql_config_parameter('user_table');
+      $userIDField = vadmin_get_mysql_config_parameter('user_id_field');
+      $userPwdField = vadmin_get_mysql_config_parameter('user_pwd_field');
+      $userMailboxField = vadmin_get_mysql_config_parameter('user_mailbox_field');
+      $userHomeField = vadmin_get_mysql_config_parameter('user_home_field');
+      $realNameField = vadmin_get_mysql_config_parameter('real_name_field');
+      $userCommentsField = 
+         vadmin_get_mysql_config_parameter('user_comments_field');
+      $userForceChangePwdField = 
+         vadmin_get_mysql_config_parameter('user_change_pwd_field');
+      $virtualTable = vadmin_get_mysql_config_parameter('virtual_table');
+      $virtualAlias = vadmin_get_mysql_config_parameter('virtual_alias');
+      $virtualDestination = vadmin_get_mysql_config_parameter('virtual_destination');
+      $softQuotaField = vadmin_get_mysql_config_parameter('soft_quota_column');
+      $hardQuotaField = vadmin_get_mysql_config_parameter('hard_quota_column');
+      $msgCountLimitField = vadmin_get_mysql_config_parameter('msg_count_limit_column');
+      $msgSizeLimitField = vadmin_get_mysql_config_parameter('msg_size_limit_column');
+      $uidField = vadmin_get_mysql_config_parameter('uid_field');
+
+
+      if (empty($errorMsg))
+      {
+         // NOTE: original query set for Vmailmgr:
+         //   username, password, mailbox, aliases(array), 
+         //   personalInfo, hardQuota, softQuota, sizeLimit, 
+         //   countLimit, creationTime, expiryTime, flags
+
+         global $VADMIN_DELIMITERS;
+         $query_string  = 'SELECT ' . $userIDField
+                        . ', ' . $userPwdField;
+         if (!empty($userMailboxField)) 
+            $query_string .= ', ' . $userMailboxField;
+         if (!empty($realNameField)) 
+            $query_string .= ', ' . $realNameField;
+         if (!empty($hardQuotaField)) 
+            $query_string .= ', ' . $hardQuotaField;
+         if (!empty($softQuotaField)) 
+            $query_string .= ', ' . $softQuotaField;
+         if (!empty($msgSizeLimitField)) 
+            $query_string .= ', ' . $msgSizeLimitField;
+         if (!empty($msgCountLimitField)) 
+            $query_string .= ', ' . $msgCountLimitField;
+
+         // NOTE: leaving out fields:
+         //     9) Creation Time
+         //    10) Expiry Time
+         // NOTE: field number 11, "flags" is unclear at this 
+         //       time, but seems irrelevant for MySQL application
+         //       so we're skipping it
+
+         // NOTE: MySQL extra query fields below:
+         //    12) comments
+         //    13) force change pwd flag (should this be under "flags" above?)
+         //    14) home
+         //    15) uid
+
+         if (!empty($userCommentsField)) 
+            $query_string .= ', ' . $userCommentsField;
+         if (!empty($userForceChangePwdField)) 
+            $query_string .= ', ' . $userForceChangePwdField;
+         if (!empty($userHomeField)) 
+            $query_string .= ', ' . $userHomeField;
+         if (!empty($uidField)) 
+            $query_string .= ', ' . $uidField;
+
+         $query_string .= ' FROM '  . $usersTable;
+
+         if (empty($user))
+            $query_string .= ' WHERE ' . $userIDField 
+                          . ' REGEXP \'[' . $VADMIN_DELIMITERS . ']{1}' 
+                          . str_replace('.', '\.', $domain) . '\'';
+         else
+            $query_string .= ' WHERE ' . $userIDField
+                          . ' = \'' . $user . '\'';
+
+         $select_result = mysql_query($query_string, $dbCon);
+
+         if ($select_result)
+         {
+
+            $users = '';
+            while ($row = mysql_fetch_row($select_result))
+            {
+
+               // need to adjust array for missing parameters
+               //
+               if (empty($userMailboxField)) 
+                  array_splice($row, 2, 0, 'no mailbox info available');
+
+               // get ALL user's aliases if we are an elvis
+               //
+               if (vadmin_is_elvis())
+                  $query_string = 'SELECT ' . $virtualAlias
+                                . ' FROM ' . $virtualTable
+                                . ' WHERE ' . $virtualDestination . '=\'' .
+                                $row[0] . '\'';
+
+               // get only the user's aliases that are under
+               // the domains the current administrator is 
+               // allowed to access
+               //
+               else
+               {
+                  $domains = vadmin_list_cross_admin_domains();
+                  if (count($domains) < 1) $domains = array($domain);
+
+                  $query_string = 'SELECT ' . $virtualAlias
+                                . ' FROM ' . $virtualTable
+                                . ' WHERE ' . $virtualDestination . '="' 
+                                . $row[0] . '" AND (';
+                  $firstTime = true;
+                  foreach ($domains as $dom)
+                  {
+                     if ($firstTime)
+                        $firstTime = false;
+                     else
+                        $query_string .= ' OR ';
+
+                     $query_string .= $virtualAlias . ' REGEXP "[' 
+                                    . $VADMIN_DELIMITERS . ']{1}'
+                                    . str_replace('.', '\.', $dom) . '"';
+                  }
+                  $query_string .= ')';
+               }
+ 
+               $select_result_2 = mysql_query($query_string, $dbCon);
+               if ($select_result_2)
+               {
+                  $aliasString = '';
+                  while ($row_2 = mysql_fetch_row($select_result_2))
+                     $aliasString .= $row_2[0] . "\r";
+                  array_splice($row, 3, 0, $aliasString);
+               }
+               else 
+               {
+                  mysql_close($dbCon);
+                  return array(1, 'Database query failed');
+               }
+
+               // hide passwords from getting outputted
+               // 
+               if (isset($row[1]) && !empty($row[1]))
+                  $row[1] = 'Set';
+
+               if (empty($realNameField)) 
+                  array_splice($row, 4, 0, '');
+
+               if (empty($hardQuotaField)) 
+                  array_splice($row, 5, 0, '');
+//TODO: should an empty value be the same as zero, both meaning no quota?
+               else if (!isset($row[5]) || empty($row[5]) 
+               || trim($row[5]) == '' || trim($row[5]) == '0')
+                  $row[5] = '-';
+
+               if (empty($softQuotaField)) 
+                  array_splice($row, 6, 0, '');
+//TODO: should an empty value be the same as zero, both meaning no quota?
+               else if (!isset($row[6]) || empty($row[6]) 
+               || trim($row[6]) == '' || trim($row[6]) == '0')
+                  $row[6] = '-';
+
+               if (empty($msgSizeLimitField)) 
+                  array_splice($row, 7, 0, '');
+//TODO: should an empty value be the same as zero, both meaning no limit?
+               else if (!isset($row[7]) || empty($row[7]) 
+               || trim($row[7]) == '' || trim($row[7]) == '0')
+                  $row[7] = '-';
+
+               if (empty($msgCountLimitField)) 
+                  array_splice($row, 8, 0, '');
+//TODO: should an empty value be the same as zero, both meaning no limit?
+               else if (!isset($row[8]) || empty($row[8]) 
+               || trim($row[8]) == '' || trim($row[8]) == '0')
+                  $row[8] = '-';
+
+               // skip creation and expiry time and flags
+               //
+               array_splice($row, 9, 0, '');
+               array_splice($row, 10, 0, '');
+               array_splice($row, 11, 0, '');
+
+               if (empty($userCommentsField)) 
+                  array_splice($row, 12, 0, '');
+
+               if (empty($userForceChangePwdField)) 
+                  array_splice($row, 13, 0, '');
+
+               if (empty($userHomeField)) 
+                  array_splice($row, 14, 0, 'no home info available');
+
+               if (empty($uidField)) 
+                  array_splice($row, 15, 0, '');
+
+               $users .= implode("\t", $row) . "\n";
+
+            }
+
+            mysql_close($dbCon);
+            return trim($users);
+
+         }
+         else 
+         {
+            mysql_close($dbCon);
+            return array(1, 'Database query failed');
+         }
+
+      }
+      else return array(1, $errorMsg);
+
+   }
+
+
+
+   // CHATTR
+   //
+   //   changes a given user attribute
+   //
+   //   attributes are keyed by number:
+   //     1 : password
+   //     2 : dest (mailbox)
+   //     3 : hard quota
+   //     4 : soft quota
+   //     5 : message size limit
+   //     6 : message count limit
+   //     7 : account expiry
+   //     8 : mailbox enabled (i assume this activates/deactivates the account?)
+   //     9 : personal (personal/real name information)
+   //
+   //   attributes added for MySQL applications:
+   //    10 : aliases
+   //    11 : comments
+   //    12 : force password change
+   //    13 : home
+   //    14 : uid
+   //
+   //   arguments:
+   //     0 : command
+   //     1 : domain
+   //     2 : userid
+   //     3 : domain password
+   //     4 : attribute number
+   //     5 : new attribute value 
+   //     (in the case of attribute 10, aliaes are added to 
+   //     this array starting with argument number 5)
+   //
+   if ($command == 'chattr')
+   {
+
+      $domain = $args[1];
+      $user = $args[2];
+      $password = $args[3];
+      $attributeNumber = $args[4];
+      $newAttributeValue = $args[5];
+      
+
+      // fake the password check:
+      //
+      $passCheck = checkDomainPassword($domain, $password);
+      if ($passCheck[0])
+         return $passCheck;
+
+
+      // get MySQL fields, tables, etc
+      //
+      list($dbCon, $errorMsg) = vadmin_get_mysql_connection();
+      $usersTable = vadmin_get_mysql_config_parameter('user_table');
+      $userIDField = vadmin_get_mysql_config_parameter('user_id_field');
+      $userPwdField = vadmin_get_mysql_config_parameter('user_pwd_field');
+      $userMailboxField = vadmin_get_mysql_config_parameter('user_mailbox_field');
+      $userHomeField = vadmin_get_mysql_config_parameter('user_home_field');
+      $realNameField = vadmin_get_mysql_config_parameter('real_name_field');
+      $userCommentsField =
+         vadmin_get_mysql_config_parameter('user_comments_field');
+      $userForceChangePwdField =
+         vadmin_get_mysql_config_parameter('user_change_pwd_field');
+      $softQuotaField = vadmin_get_mysql_config_parameter('soft_quota_column');
+      $hardQuotaField = vadmin_get_mysql_config_parameter('hard_quota_column');
+      $msgCountLimitField = vadmin_get_mysql_config_parameter('msg_count_limit_column');
+      $msgSizeLimitField = vadmin_get_mysql_config_parameter('msg_size_limit_column');
+      $passwordEncryption = vadmin_get_mysql_config_parameter('pwd_encryption');
+      $uidField = vadmin_get_mysql_config_parameter('uid_field');
+      $virtualTable = vadmin_get_mysql_config_parameter('virtual_table');
+      $virtualAlias = vadmin_get_mysql_config_parameter('virtual_alias');
+      $virtualDestination = vadmin_get_mysql_config_parameter('virtual_destination');
+
+
+      global $VADMIN_DELIMITERS;
+
+
+      // map attribute numbers to MySQL field names
+      //
+      $userAttributeDatabaseFieldNames = array('',                        // 0
+                                               $userPwdField,             // 1
+                                               $userMailboxField,         // 2
+                                               $hardQuotaField,           // 3
+                                               $softQuotaField,           // 4
+                                               $msgSizeLimitField,        // 5
+                                               $msgCountLimitField,       // 6
+                                               '',                        // 7
+                                               '',                        // 8
+                                               $realNameField,            // 9
+                                               '',                        // 10
+                                               $userCommentsField,        // 11
+                                               $userForceChangePwdField,  // 12
+                                               $userHomeField,            // 13
+                                               $uidField,                 // 14
+                                              );
+
+
+
+      // if changing aliases, that's a different query...
+      //
+      if ($attributeNumber == 10)
+      {
+
+         //
+         // first, remove all current aliases for this user
+         //
+
+         // remove ALL user's aliases if we are an elvis
+         // 
+         if (vadmin_is_elvis())
+            $query_string  = 'DELETE FROM ' . $virtualTable 
+                           . ' WHERE ' . $virtualDestination . '="' . $user . '"';
+               
+         // remove only the user's aliases that are under
+         // the domains the current administrator is
+         // allowed to access
+         //
+         else
+         {
+            $domains = vadmin_list_cross_admin_domains();
+            if (count($domains) < 1) $domains = array($domain);
+
+            $query_string  = 'DELETE FROM ' . $virtualTable 
+                           . ' WHERE ' . $virtualDestination . '="' . $user . '"'
+                           . ' AND (';
+
+            $firstTime = true;
+            foreach ($domains as $dom)
+            {
+               if ($firstTime)
+                  $firstTime = false;
+               else
+                  $query_string .= ' OR ';
+
+               $query_string .= $virtualAlias . ' REGEXP "['
+                              . $VADMIN_DELIMITERS . ']{1}'
+                              . str_replace('.', '\.', $dom) . '"';
+            }
+            $query_string .= ')';
+         }
+
+
+         $select_result = mysql_query($query_string, $dbCon);
+
+
+         if (!$select_result)
+         {
+            mysql_close($dbCon);
+            return array(1, 'Database query failed');
+         }
+
+
+         // then loop through each of the forwarding addresses
+         // and add them as new aliases
+         //
+         for($x = 5; $x < sizeof($args); $x++)
+         {
+
+            if (empty($args[$x])) continue;
+
+
+            // if current administrator isn't an elvis,
+            // must make sure that the forwarding address
+            // being added is in one of the domains that 
+            // this administrator is allowed to maintain
+            //
+            if (!vadmin_is_elvis())
+            {
+               $domains = vadmin_list_cross_admin_domains();
+               if (count($domains) < 1) $domains = array($domain);
+               $foundDomain = false;
+               foreach ($domains as $dom)
+                  if (preg_match('/' . str_replace('.', '\.', $dom) . '$/', 
+                                 $args[$x])) 
+                     $foundDomain = true;
+               if (!$foundDomain)
+                  continue; 
+            }
+
+            $query_string  = 'INSERT INTO ' . $virtualTable 
+                        . '(' . $virtualAlias . ', ' . $virtualDestination
+                        . ') VALUES ("' . $args[$x] . '", "' . $user . '")';
+
+            $select_result = mysql_query($query_string, $dbCon);
+
+            if (!$select_result)
+            {
+               mysql_close($dbCon);
+               return array(1, 'Database query failed');
+            }
+
+         }
+         mysql_close($dbCon);
+         return array(0, 'OK');
+
+      }
+
+
+
+      // if replacing the password, need to encrypt it properly
+      //
+      if ($attributeNumber == 1)
+      {
+
+         // if removing the password, just set it to empty string
+         //
+         if (empty($newAttributeValue))
+            $newValue = '""';
+
+         // otherwise, encrypt it
+         //
+         else if ($passwordEncryption == 'unix')
+            $newValue = 'encrypt("' . $newAttributeValue . '")';
+         else if ($passwordEncryption == 'sasl')
+//TODO: how does sasl work? check change_mysqlpasswd plugin
+            $newValue = 'encrypt("' . $newAttributeValue . '")';
+         else if ($passwordEncryption == 'md5')
+//TODO: how does md5 work? check change_mysqlpasswd plugin (but why
+//      can't we just use php's md5 command??)
+            $newValue = 'encrypt("' . $newAttributeValue . '")';
+         else if ($passwordEncryption == 'none')
+            $newValue = '"' . $newAttributeValue . '"';
+         else 
+            return array(1, 'Unsupported password encryption');
+
+      }
+
+      // if changing hard quota, make sure it is formatted correctly
+      //
+      else if ($attributeNumber == 3)
+      {
+         $quotaStyle = vadmin_get_mysql_config_parameter('quota_style');
+         $maximumHardQuota = vadmin_get_mysql_config_parameter('maximum_hard_quota');
+
+//TODO: note that we are assuming that zero means unlimited quota
+//      which is correct for maildrop... if not for others, then 
+//      we have to set it to zero here for maildrop and - (or 
+//      whatever) for others
+         if ($newAttributeValue == '-')
+         {
+
+            // if there is a maximum quota limitation, use 
+            // it instead of unlimited quota
+            //
+            if (!vadmin_is_elvis() && !empty($maximumHardQuota))
+               $newValue = '"' . $maximumHardQuota * 1024;
+            else
+               $newValue = '"0';
+
+         }
+         else
+         {
+            if (!vadmin_is_elvis() && !empty($maximumHardQuota)
+                && intval($newAttributeValue/1024) > $maximumHardQuota)
+              return array(1, 'Cannot set quota larger than ' 
+                              . $maximumHardQuota . 'KiB');
+            $newValue = '"' . $newAttributeValue;
+         }
+
+         if ($quotaStyle == 'maildrop')
+         {
+            $newValue .= 'S';
+
+            // need to grab the count limit, if it 
+            // exists, so we don't lose it
+            //
+            $query_string = 'SELECT ' . $hardQuotaField 
+                          . ' FROM ' . $usersTable 
+                          . ' WHERE ' . $userIDField . ' = "' . $user . '"';
+
+            $select_result = mysql_query($query_string, $dbCon);
+
+            if (!$select_result)
+            {
+               mysql_close($dbCon);
+               return array(1, 'Database query failed');
+            }
+
+            $row = mysql_fetch_row($select_result);
+
+            preg_match('/(\d+C)/', $row[0], $matches);
+            if (isset($matches[0]))
+               $CountLimit = $matches[0];
+            else 
+               $CountLimit = '';
+
+            $newValue .= $CountLimit;
+         }
+
+         $newValue .= '"';
+      }
+
+      // if changing message count limit, make sure it is formatted correctly
+      //
+      else if ($attributeNumber == 6)
+      {
+         $quotaStyle = vadmin_get_mysql_config_parameter('quota_style');
+         $maximumMsgCount = vadmin_get_mysql_config_parameter('maximum_msg_count');
+
+//TODO: note that we are assuming that zero means unlimited quota
+//      which is correct for maildrop... if not for others, then 
+//      we have to set it to zero here for maildrop and - (or 
+//      whatever) for others
+         if ($newAttributeValue == '-')
+         {
+
+            // if there is a maximum message count limitation,
+            // use it instead of unlimited quota
+            //
+            if (!vadmin_is_elvis() && !empty($maximumMsgCount))
+               $newValue = '"' . $maximumMsgCount;
+            else
+               $newValue = '"0';
+
+         }
+         else
+         {
+            if (!vadmin_is_elvis() && !empty($maximumMsgCount)
+                && $newAttributeValue > $maximumMsgCount)
+              return array(1, 'Cannot set message count limit larger than ' 
+                              . $maximumMsgCount . ' messages');
+            $newValue = '"' . $newAttributeValue;
+         }
+
+         if ($quotaStyle == 'maildrop')
+         {
+            $newValue .= 'C';
+
+            // need to grab the hard quota, if it 
+            // exists, so we don't lose it
+            //
+            $query_string = 'SELECT ' . $hardQuotaField 
+                          . ' FROM ' . $usersTable 
+                          . ' WHERE ' . $userIDField . ' = "' . $user . '"';
+
+            $select_result = mysql_query($query_string, $dbCon);
+
+            if (!$select_result)
+            {
+               mysql_close($dbCon);
+               return array(1, 'Database query failed');
+            }
+
+            $row = mysql_fetch_row($select_result);
+
+            preg_match('/(\d+S)/', $row[0], $matches);
+            if (isset($matches[0]))
+               $HardQuota = $matches[0];
+            else 
+               $HardQuota = '';
+
+            $newValue .= $HardQuota;
+
+            // also need to change attribute numbers, since we need
+            // to be updating the hard quota column (there is no message
+            // count column for maildrop installations)
+            //
+            $attributeNumber = 3;
+
+         }
+
+         $newValue .= '"';
+      }
+
+      // if changing soft quota, make sure it is formatted correctly
+      //
+      else if ($attributeNumber == 4)
+      {
+         $maximumSoftQuota = vadmin_get_mysql_config_parameter('maximum_soft_quota');
+
+//TODO: note that we are assuming that zero means unlimited quota
+         if ($newAttributeValue == '-')
+         {
+
+            // if there is a maximum quota limitation, use 
+            // it instead of unlimited quota
+            //
+            if (!vadmin_is_elvis() && !empty($maximumSoftQuota))
+               $newValue = '"' . $maximumSoftQuota * 1024;
+            else
+               $newValue = '"0';
+
+         }
+         else
+         {
+            if (!vadmin_is_elvis() && !empty($maximumSoftQuota)
+                && intval($newAttributeValue/1024) > $maximumSoftQuota)
+              return array(1, 'Cannot set quota larger than '
+                              . $maximumSoftQuota . 'KiB');
+            $newValue = '"' . $newAttributeValue;
+         }
+
+         $newValue .= '"';
+      }
+
+      // if changing message size limit, make sure it is formatted correctly
+      //
+      else if ($attributeNumber == 5)
+      {
+         $maximumMsgSize = vadmin_get_mysql_config_parameter('maximum_msg_size');
+
+//TODO: note that we are assuming that zero means unlimited quota
+         if ($newAttributeValue == '-')
+         {
+
+            // if there is a maximum message size limitation, 
+            // use it instead of unlimited quota
+            //
+            if (!vadmin_is_elvis() && !empty($maximumMsgSize))
+               $newValue = '"' . $maximumMsgSize * 1024;
+            else
+               $newValue = '"0';
+
+         }
+         else
+         {
+            if (!vadmin_is_elvis() && !empty($maximumMsgSize)
+                && intval($newAttributeValue/1024) > $maximumMsgSize)
+              return array(1, 'Cannot set message size limit larger than ' 
+                              . $maximumMsgSize . 'KiB');
+            $newValue = '"' . $newAttributeValue;
+         }
+
+         $newValue .= '"';
+      }
+
+      else
+         $newValue = '"' . $newAttributeValue . '"';
+
+
+      if (empty($errorMsg))
+      {
+
+         $query_string  = 'UPDATE ' . $usersTable 
+                        . ' SET ' 
+                        . $userAttributeDatabaseFieldNames[$attributeNumber]
+                        . ' = ' . $newValue . ' WHERE '
+                        . $userIDField . ' = "' . $user . '"';
+
+
+         $select_result = mysql_query($query_string, $dbCon);
+
+         if ($select_result)
+         {
+            // nothing to do except close and return 
+            //
+            mysql_close($dbCon);
+            return array(0, 'OK');
+         }
+         else 
+         {
+            mysql_close($dbCon);
+            return array(1, 'Database query failed');
+         }
+      }
+      else return array(1, $errorMsg);
+
+   }
+
+
+
+   // DELUSER
+   //
+   //   deletes a user account from the system
+   //
+   //   arguments:
+   //     0 : command
+   //     1 : domain
+   //     2 : userid
+   //     3 : domain password
+   //
+   if ($command == 'deluser')
+   {
+
+      $domain = $args[1];
+      $user = $args[2];
+      $password = $args[3];
+      
+
+      // fake the password check:
+      //
+      $passCheck = checkDomainPassword($domain, $password);
+      if ($passCheck[0])
+         return $passCheck;
+
+
+      // get global variable for versions of PHP < 4.1
+      //
+      if (!compatibility_check_php_version(4,1)) {
+         global $HTTP_SERVER_VARS, $HTTP_POST_VARS;
+         $_SERVER = $HTTP_SERVER_VARS;
+         $_POST = $HTTP_POST_VARS;
+      }
+
+
+      // security check... make sure the calling
+//TODO: put this in config file and make sure the config file is included
+//here or at top of this file as appropriate (get it from installer and
+//suto-write it into the config file and the perl script
+$usernameChars = 'A-Za-z0-9_@.-';
+      // script is vadmin_main.php and that the
+      // query string is empty and that the post
+      // string has only two elements: MOD and userid
+      // and that the userid has only characters A-Z, a-z,
+      // 0-9, and '@', '_', '.', and '-'
+      //
+      if (!preg_match('/\/plugins\/vadmin\/vadmin_main\.php$/', 
+                     $_SERVER['REQUEST_URI']))
+         return array(99, 'BAD; permission denied');
+      if (sizeof($_POST) != 2 
+         || !isset($_POST['MOD']) || $_POST['MOD'] !== 'deluserconfirm' 
+         || !isset($_POST['userid'])  
+         || preg_match('/[^' . $usernameChars . ']/', $_POST['userid'])
+         || (isset($_SERVER['QUERY_STRING']) && !empty($_SERVER['QUERY_STRING'])))
+         return array(99, 'BAD; permission denied');
+
+
+      list($dbCon, $errorMsg) = vadmin_get_mysql_connection();
+// TODO: why was this line here?!?  MAKE SURE TO TEST THIS when commented out
+//       and if it works, remove this line!!
+//      $user = $_POST['userid'];
+      $usersTable = vadmin_get_mysql_config_parameter('user_table');
+      $userIDField = vadmin_get_mysql_config_parameter('user_id_field');
+      $uidField = vadmin_get_mysql_config_parameter('uid_field');
+      $defaultUid = vadmin_get_mysql_config_parameter('default_uid');
+      $userMailboxField = vadmin_get_mysql_config_parameter('user_mailbox_field');
+      $userHomeField = vadmin_get_mysql_config_parameter('user_home_field');
+      $virtualTable = vadmin_get_mysql_config_parameter('virtual_table');
+      $virtualDestination = vadmin_get_mysql_config_parameter('virtual_destination');
+
+
+      // query out UID info (or use default value)
+      //
+      if (!empty($uidField))
+      {
+         if (empty($errorMsg))
+         {
+
+            $query_string  = 'SELECT ' . $uidField . ' FROM ' . $usersTable 
+                           . ' WHERE ' . $userIDField . ' = "' . $user . '"';
+
+            $select_result = mysql_query($query_string, $dbCon);
+   
+            if ($select_result)
+            {
+               $row = mysql_fetch_row($select_result);
+               if (isset($row[0]))
+                  $uid = $row[0];
+               else 
+               {
+                  mysql_close($dbCon);
+                  return array(1, 'Database query failed');
+               }
+            }
+            else 
+            {
+               mysql_close($dbCon);
+               return array(1, 'Database query failed');
+            }
+         }
+         else return array(1, $errorMsg);
+   
+      }
+      else
+      {
+         if (empty($defaultUid))
+            return array(1, 'UID not specified');
+         $uid = $defaultUid;
+      }
+
+
+      // query out maildir path info
+      //
+      if (empty($errorMsg))
+      {
+
+         $query_string  = 'SELECT ' . $userMailboxField 
+                        . ' FROM ' . $usersTable 
+                        . ' WHERE ' . $userIDField . ' = "' . $user . '"';
+
+         $select_result = mysql_query($query_string, $dbCon);
+   
+         if ($select_result)
+         {
+            $row = mysql_fetch_row($select_result);
+            if (isset($row[0]) && !empty($row[0]))
+               $mailbox = $row[0];
+            else 
+            {
+               mysql_close($dbCon);
+               return array(1, 'Database query failed');
+            }
+         }
+         else 
+         {
+            mysql_close($dbCon);
+            return array(1, 'Database query failed');
+         }
+      }
+      else return array(1, $errorMsg);
+
+
+      // query out home path info
+      //
+      if (!empty($userHomeField))
+      {
+         if (empty($errorMsg))
+         {
+
+            $query_string  = 'SELECT ' . $userHomeField 
+                           . ' FROM ' . $usersTable 
+                           . ' WHERE ' . $userIDField . ' = "' . $user . '"';
+
+            $select_result = mysql_query($query_string, $dbCon);
+   
+            if ($select_result)
+            {
+               $row = mysql_fetch_row($select_result);
+               if (isset($row[0]))
+                  $home = $row[0];
+               else 
+               {
+                  mysql_close($dbCon);
+                  return array(1, 'Database query failed');
+               }
+            }
+            else 
+            {
+               mysql_close($dbCon);
+               return array(1, 'Database query failed');
+            }
+         }
+         else return array(1, $errorMsg);
+   
+      }
+      else
+         $home = '';
+
+
+      // send user id and deletion request to mysql 'daemon' replacement
+      //
+      $status = array();
+      echo exec('vadmin/scripts/mysql/gogetem deluser' . $_POST['userid']
+               . '###' . $uid . '###' . $mailbox . '###' . $home . '###', 
+               $status, $returnCode);
+
+
+      // if given some output, return last line
+      //
+      if (sizeof($status) > 0)
+      {
+         mysql_close($dbCon);
+         return array($returnCode, $status[sizeof($status) - 1]);
+      }
+
+
+      // otherwise, remove database entries and then return 
+      //
+      if (!$returnCode)
+      {
+
+         // delete ALL user's aliases even if we are not an 
+         // elvis, since broken aliases will only cause errors
+         //
+         $query_string  = 'DELETE FROM ' . $virtualTable
+                        . ' WHERE ' . $virtualDestination . ' = "' . $user . '"';
+
+         $select_result = mysql_query($query_string, $dbCon);
+
+         if ($select_result)
+         {
+            // nothing needs to be done
+         }
+         else
+         {
+            mysql_close($dbCon);
+            return array(1, 'Database query failed');
+         }
+
+
+         // now delete user from user table
+         //
+         $query_string  = 'DELETE FROM ' . $usersTable
+                        . ' WHERE ' . $userIDField . ' = "' . $user . '"';
+
+         $select_result = mysql_query($query_string, $dbCon);
+
+         if ($select_result)
+         {
+            // nothing needs to be done
+         }
+         else
+         {
+            mysql_close($dbCon);
+            return array(1, 'Database query failed');
+         }
+
+
+         // done, return OK
+         //
+         @mysql_close($dbCon);
+         return array($returnCode, 'OK');
+
+      }
+
+      @mysql_close($dbCon);
+      return array($returnCode, 'BAD');
+
+   }
+// TODO: when making user...
+// mkdir /home/squirrelmail/vacation_messages/patiencehosting/ethan
+// chown 5003:apache /home/squirrelmail/vacation_messages/patiencehosting/ethan
+// chmod ...??
+// mkdir /var/spool/postfix/virtual/patiencehosting/ethan
+// mkdir /var/spool/postfix/virtual/patiencehosting/ethan/cur
+// mkdir /var/spool/postfix/virtual/patiencehosting/ethan/new
+// mkdir /var/spool/postfix/virtual/patiencehosting/ethan/tmp
+// chown -R 5003:5003 /var/spool/postfix/virtual/patiencehosting/ethan
+// chmod ...??
+
+// TODO: when creating new users, start with minimum UID and
+//   find first non-used one instead of getting max(uid) + 1
+
+//TODO: remember that the uid column may not have been specified, if not
+//      use the default uid
+
+// TODO: need mysql config items for base paths for HOME and MAILDIR
+
+
+
+   // ADDUSER
+   //
+   //   creates a new user
+   //
+   //   arguments:
+   //      0  : command
+   //      1  : domain
+   //      2  : userid
+   //      3  : domain password
+   //      4  : new user's password (plaintext)
+   //      5  : new user's username
+   //     6-? : alias names for this new user, if provided
+   //
+   if ($command == 'adduser2')
+   {
+
+      $domain = $args[1];
+      $user = $args[2];
+      $password = $args[3];
+      $newUserPwd = $args[4];
+      $newUserName = $args[5];
+
+      $aliases = array();
+      for ($i = 6; isset($args[$i]); $i++)
+         $aliases[] = $args[$i];
+
+
+      // fake the password check:
+      //
+      $passCheck = checkDomainPassword($domain, $password);
+      if ($passCheck[0])
+         return $passCheck;
+
+
+      // get global variable for versions of PHP < 4.1
+      //
+      if (!compatibility_check_php_version(4,1)) {
+         global $HTTP_SERVER_VARS, $HTTP_POST_VARS;
+         $_SERVER = $HTTP_SERVER_VARS;
+         $_POST = $HTTP_POST_VARS;
+      }
+
+
+      // security check... make sure the calling
+//TODO: put this in config file and make sure the config file is included
+//here or at top of this file as appropriate (get it from installer and
+//suto-write it into the config file and the perl script
+$usernameChars = 'A-Za-z0-9_@.-';
+      // script is vadmin_main.php and that the
+      // query string is empty and that the post
+      // string has only four elements: MOD, userid
+      // vpassword, and aliases
+      // and that the userid, aliases and password have only the 
+      // characters specified in the config file (something like 
+      // A-Z, a-z, 0-9, and '@', '_', '.', and '-')
+      //
+      $numPost = 4;
+      if (!isset($_POST['aliases']))
+         $numPost = 3;
+      else
+      {
+         // strip out chars that will break the test below for appropriate
+         // charsets... this is ok, since aliases is a bit different, and
+         // we already have a parsed version of this info, so trashing it
+         // here makes no difference
+         //
+         $_POST['aliases'] = str_replace(array("\r\n", "\r", "\n", ','), 
+                                         array('', '', '', ''), $_POST['aliases']);
+         if (strpos($usernameChars, ' ') === FALSE)
+            $_POST['aliases'] = str_replace(' ', '', $_POST['aliases']);
+      }
+      if (!preg_match('/\/plugins\/vadmin\/vadmin_main\.php$/',
+                     $_SERVER['REQUEST_URI']))
+         return array(99, 'BAD; permission denied');
+      if (sizeof($_POST) != $numPost
+         || !isset($_POST['MOD']) || $_POST['MOD'] !== 'createuser'
+         || !isset($_POST['userid'])
+         || preg_match('/[^' . $usernameChars . ']/', $_POST['userid'])
+         || !isset($_POST['vpassword'])
+         || preg_match('/[^' . $usernameChars . ']/', $_POST['vpassword'])
+         || !isset($_POST['aliases'])
+         || preg_match('/[^' . $usernameChars . ']/', $_POST['aliases'])
+         || (isset($_SERVER['QUERY_STRING']) && !empty($_SERVER['QUERY_STRING'])))
+         return array(99, 'BAD; permission denied');
+
+
+      list($dbCon, $errorMsg) = vadmin_get_mysql_connection();
+      $new_user_dirs = vadmin_get_mysql_config_parameter('new_user_dirs');
+      $new_user_dirs_owner = vadmin_get_mysql_config_parameter('new_user_dirs_owner');
+      $new_user_dirs_perms = vadmin_get_mysql_config_parameter('new_user_dirs_perms');
+// TODO: why was this line here?!?  MAKE SURE TO TEST THIS when commented out
+//       and if it works, remove this line!!
+//      $user = $_POST['userid'];
+// TODO: the following lines were just copied from deluser... make sure they
+//       are all needed in this context
+      $usersTable = vadmin_get_mysql_config_parameter('user_table');
+      $userIDField = vadmin_get_mysql_config_parameter('user_id_field');
+      $uidField = vadmin_get_mysql_config_parameter('uid_field');
+      $defaultUid = vadmin_get_mysql_config_parameter('default_uid');
+      $userMailboxField = vadmin_get_mysql_config_parameter('user_mailbox_field');
+      $userHomeField = vadmin_get_mysql_config_parameter('user_home_field');
+      $virtualTable = vadmin_get_mysql_config_parameter('virtual_table');
+      $virtualDestination = vadmin_get_mysql_config_parameter('virtual_destination');
+
+      $mkdirs = preg_split("/(\015\012)|(\015)|(\012)/", $new_user_dirs);
+      $mkdir_owners = preg_split("/(\015\012)|(\015)|(\012)/", $new_user_dirs_owner);
+      $mkdir_perms = preg_split("/(\015\012)|(\015)|(\012)/", $new_user_dirs_perms);
+
+print_r($mkdirs);
+print_r($mkdir_owners);
+print_r($mkdir_perms);
+
+// TODO: how to get unused UIDs without just selecting max()...
+//    1. select min(uid)
+//    2. select max(uid)
+//    3. for loop from min_uid to max_uid
+//    4.    select id from users_table where uid = loop_index
+//    5.    if select failed
+//    6.       make sure uid is saved
+//    7.       break out of for loop
+//    8. upon exiting the for loop, if we found no unused 
+//       uids, we still probably need to increment the loop_index
+//       for it to be the correct uid... which means that if we
+//       *did* find an unused one, it will then be wrong, so in
+//       line 6, just decrement the one we found
+echo "TESTING";
+
+
+   }
+
+}
+
+
+
+// in leiu of checking the password in Vmailmgr, we just
+// make sure things match up with the one stored by vadmin
+//
+function checkDomainPassword($domain, $password) 
+{
+
+   // fake the password check:
+   // if the currently logged in user is an elvis
+   // and there is no password already set up, we
+   // accept what is given - otherwise, we compare
+   // to what is in the passwd file in the vadmin
+   // directory
+   //
+   $domainPassword = vadmin_get_domain_passwd($domain);
+   if (!$domainPassword)
+   {
+      if (vadmin_is_elvis())
+      {
+         vadmin_put_domain_passwd($domain, $password);
+         return array(0, 'OK');
+      }
+      else
+      {
+         return array(1, 'No password defined for "' 
+            . $domain . '".  Password must be set by an administrator.');
+      }
+   }
+   else if ($domainPassword != $password)
+      return array(1, 'Wrong password for ' . $domain);
+
+}
+
+
+
+/* listdomain, takes domain name and password, returns listdomain output
+   parsed as stated in listdomain_parse_userdata */
+
+function listdomain($domain, $password){
+if ($domain=='') return array(1, 'Empty domain');
+if ($password=='') return array(1, 'Empty domain password');
+	$command=array('listdomain',$domain, $password);
+	$temp=vm_daemon_raw(array('listdomain', $domain, $password));
+	if (is_array($temp)) return $temp;
+return mysql_listdomain_parse($temp);
+}
+
+
+
+// Mimics listdomain_parse for MySQL installations
+// 
+// Returns array of arrays: nested array contains
+// these fields, corresponding to one user's 
+// information:
+//
+//   username, password, mailbox, aliases (array), PersonalInfo, 
+//   HardQuota, SoftQuota, SizeLimit, CountLimit, CreationTime, 
+//   ExpiryTime, flags
+//
+// The current implementation may not return values
+// in all fields
+//
+// Yuck.  Confusing code basically explodes the given string,
+// first level array split by \n, then each user's attributes
+// are split by \t and nested arrays inside of that are split 
+// by \r
+//
+function mysql_listdomain_parse($output)
+{
+
+   $userArray = array();
+
+   $allUsers = explode("\n", $output);
+
+   foreach($allUsers as $userInfoString)
+   {
+      $userInfo = explode("\t", $userInfoString);
+      for($i = 0; $i < sizeof($userInfo); $i++)
+         if (strpos($userInfo[$i], "\r") !== FALSE)
+         {
+            $userInfoArray = explode("\r", $userInfo[$i]);
+
+            // but make sure no empty elements are included...
+            //
+            $userInfo[$i] = array();
+            for($j = 0; $j < sizeof($userInfoArray); $j++)
+            {
+               $userInfoArray[$j] = trim($userInfoArray[$j]);
+               if (!empty($userInfoArray[$j]))
+                  $userInfo[$i][] = $userInfoArray[$j];
+            }
+         }
+      $userArray[] = $userInfo;
+   }
+
+   return $userArray;
+
+}
+
+
+
+/* Lookup, returns for a single virtual user what listdomain does for an entire domain. */
+
+function lookup($domain, $user, $password){
+	$command=array("lookup", $domain, $user, $password);
+	$tmp = vm_daemon_raw($command);
+	//return listdomain_parse_userdata($tmp[1], $user);
+	$tmp = mysql_listdomain_parse($tmp);
+	return $tmp[0];
+}
+			
+
+
+/**********************************************
+ *  Below are copies of listdomain-related
+ *  functions from the original vmail.inc
+ *  that are fairly involved, and can
+ *  probably be ignored.  Keeping them
+ *  just in case.
+ **********************************************/
+
+
+
+/* Does the ugly stuff for listdomain, and calls listdomain_parse_line once
+   for each user */
+
+function listdomain_parse($output){
+	$cur=1;
+	do {
+		$linelength=(ord(substr($output, $cur++, 1)) << 8 ) + ord(substr($output, $cur++, 1));
+		if ($linelength == 0) break;
+		$array[] = listdomain_parse_line(substr($output, $cur, $linelength));
+		$cur+=$linelength+1;
+	} while (1);
+	return $array;
+}
+
+
+
+/* Parses the lines from listdomain into fields. */
+
+function listdomain_parse_line($line){
+	//Grab the user's name
+	$data_position = strpos($line, chr(0));
+	$username=substr($line, 0, $data_position);
+	// Send that user's data to be parsed. The $username is nessesary because array manipulation in PHP3 is so limited.
+	return listdomain_parse_userdata(substr($line, $data_position+1), $username);
+}
+
+
+
+function listdomain_parse_userdata($line, $username){
+	//Grab the protocol version
+	$ver=ord(substr($line, 0, 1));
+	if ($ver != 2) die("Protocol version is $ver, not the 2 as this script expects.");
+	//Chop off the version
+	$line=substr($line, 1);
+	//Grab the flags
+	while (substr($line, 0, 1) != chr(0)){
+		$flags[ord(substr($line, 0, 1))]=ord(substr($line, 1, 1));
+		$line=substr($line, 2);
+	};
+	//Explode the remainder into an array based on the NULs used to end the fields
+	$user=explode(chr(0), $line);
+	$x=1;
+	if ($user[$x++]!=('*')) $password='Set';
+	$mailbox=$user[$x++];
+	while($user[$x]!='')
+		$aliases[]=$user[$x++];
+	$x++;
+	$PersonalInfo=$user[$x++];
+	$HardQuota=$user[$x++];
+	$SoftQuota=$user[$x++];
+	$SizeLimit=$user[$x++];
+	$CountLimit=$user[$x++];
+	$CreationTime=$user[$x++];
+	$ExpiryTime=$user[$x++];
+	
+	return array($username, $password, $mailbox, $aliases,
+$PersonalInfo, $HardQuota, $SoftQuota, $SizeLimit, $CountLimit,
+$CreationTime, $ExpiryTime, $flags);
+}	
+
+
+
+/* vchpass, takes domain name, password, username and a new password,
+   returns an array consisting of an integer exit code and message. Scripts
+   allowing users to change their own passwords should check the password
+   was entered correctly by having the user enter it twice and checking
+   these are equal*/
+
+function vchpass($domain, $password, $username, $newpass)
+{
+
+   if ($domain=='') return array(1, 'Empty domain');
+   if ($password=='') return array(1, 'Empty domain password');
+   if ($username=='') return array(1, 'Empty username');
+   if ($newpass=='') return array(1, 'Empty new password');
+
+   $command=array('chattr', $domain, $username, $password, '1', $newpass);
+
+   return vm_daemon_raw($command);
+
+}
+
+
+
+/* changes user attributes.  which attribute is to be changed is indicated
+   by the $attr parameter, which should be one of the string constants 
+   listed below (PASS, DEST, etc). */
+
+function vchattr($domain, $password, $username, $attr, $value)
+{
+
+   if ($domain=='') return array(1, 'Empty domain');
+   if ($password=='') return array(1, 'Empty domain password');
+   if ($username=='') return array(1, 'Empty username');
+
+   $attributeList = array(
+      'PASS' =>            '1',
+      'DEST' =>            '2',
+      'HARDQUOTA' =>       '3',
+      'SOFTQUOTA' =>       '4',
+      'MSGSIZE' =>         '5',
+      'MSGCOUNT' =>        '6',
+      'EXPIRY' =>          '7',
+      'MAILBOX_ENABLED' => '8',
+      'PERSONAL' =>        '9',
+      'ALIASES' =>         '10',  // added for MySQL implementation
+      'COMMENTS' =>        '11',  // added for MySQL implementation
+      'FORCEPWDCHNG' =>    '12',  // added for MySQL implementation
+      'HOME' =>            '13',  // added for MySQL implementation
+      'UID' =>             '14',  // added for MySQL implementation
+   );
+
+   $command = array ('chattr', $domain, $username, $password, 
+                     $attributeList[$attr], $value);
+
+   return vm_daemon_raw($command);
+
+}
+
+
+
+/* vchforward, takes domain name, password, username and an array of
+   forwarding addresses, returns an array consisting of an integer exit code
+   and message. */ 
+
+function vchforward($domain, $password, $username, $forwards)
+{
+
+   if ($domain=='') return array(1, 'Empty domain');
+   if ($password=='') return array(1, 'Empty domain password');
+   if ($username=='') return array(1, 'Empty username');
+
+   $command = array('chattr', $domain, $username, $password, '10');
+
+   for ($x = 0; $x < sizeof($forwards); $x++)
+      if ($forwards[$x] != '') $command[] = $forwards[$x];
+
+   if (sizeof($forwards) == 0) $command[] = '';
+
+   return vm_daemon_raw($command);
+
+}
+
+
+
+/* vdeluser, takes domain name, password, and username, returns an array
+   consisting of an integer exit code and message. */
+
+function vdeluser($domain, $password, $username){
+
+   if ($domain=='') return array(1, 'Empty domain');
+   if ($password=='') return array(1, 'Empty domain password');
+   if ($username=='') return array(1, 'Empty username');
+
+   $command = array('deluser', $domain, $username, $password);
+
+   return vm_daemon_raw($command);
+
+}
+
+
+
+/* vadduser, takes domain name, password, username, userpassword, and an
+   array of alias names, returns an array consisting of an integer exit 
+   code and message. */
+
+function vadduser($domain, $password, $username, $userpass, $forwards){
+
+   if ($domain=='') return array(1, 'Empty domain');
+   if ($password=='') return array(1, 'Empty domain password');
+   if ($username=='') return array(1, 'Empty username');
+   if ($userpass=='') return array(1, 'No user password supplied');
+
+   $command = array('adduser2', $domain, $username, $password,
+                    $userpass, $username);
+
+   for ($x=0; $x < sizeof($forwards); $x++)
+   {
+      $fwd = trim($forwards[$x]);
+      if (!empty($fwd)) $command[] = $fwd;
+   }
+
+   return vm_daemon_raw($command);
+
+}
+
+
+
+// TODO: not cleaned up and changed for MySQL yet...
+/* vaddalias, takes domain name, password, username, userpassword, and an
+   array of forwarding desinations, returns an array consisting of an
+   integer exit code and message. If the user's password is left empty an
+   alias with no password will be created. */
+
+function vaddalias($domain, $password, $username, $userpass, $forwards){
+if ($domain=="") return array(1, "Empty domain");
+if ($password=="") return array(1, "Empty domain password");
+if ($username=="") return array(1, "Empty username");
+	$command=array("adduser2", $domain, $username, $password,
+	               $userpass, "");
+	for ($x=0; $x < sizeof($forwards); $x++)
+		if ($forwards[$x]!="")
+			$command[]=$forwards[$x];
+return vm_daemon_raw($command);
+}
+
+
+

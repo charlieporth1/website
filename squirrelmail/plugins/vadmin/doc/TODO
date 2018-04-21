@@ -1,0 +1,208 @@
+#
+# TODO items herein are an ad-hoc informal list compiled during 
+# the development of version 3.0... many of them came to be while 
+# coding the new SQL backend, although I think by now, they are 
+# mostly generic things to be done
+#
+
+BUGS:
+
+# usernames with capital letters in them seem to generate different
+  hash for their hashed prefs dir (even when $force_username_lowercase
+  is turned on?!?!?); showing the file and its contents on the user 
+  details screen is not working in some cases... and produces different 
+  results depending on how the username was typed in when using the 
+  search page...  UPDATE: I can no longer reproduce this, so either
+  it is no longer an issue or someone needs to help reproduce it.
+
+
+TODO HIGH PRIORITY:
+
+# Explain more about how to build a custom backend
+  also note that custom field TYPES are handled in accounts module, so will apply
+  to any backend that supports custom fields.  see sql conf file for explanation
+  of the available field types
+
+.........
+There is no info in the doc directory about how to work the SUID stuff...
+maybe that should go here at least a little?  I don't yet remember what
+docs are actually in the sql.conf backend config file about it as well
+as in the actual suid directory...?
+
+
+
+
+TODO MEDIUM PRIORITY:
+
+# Convert suid proxy build process to use automake
+
+* on user list screen add button that can "mass edit"
+  users (checkbox not just for delete) for things like
+  setting the enabled flag, smtps, etc (is there anything
+  here EXCEPT custom fields??)
+
+# create new screen for mass deletion just like the one for mass add
+  (where you can specify a list of accounts to be removed via
+  textfield or uploaded text file) - not important, because it is
+  usually sufficient to use the checkboxes on the user list page
+  However, schools or the like may find this a very handy feature
+  when they have a known list of users who are departing
+
+# Add some more tips about the kinds of things you can do with
+  Vadmin's internal hooks.  For the time being, they are minimally
+  documented in doc/README in the EXTENDING section, but each of
+  the hooks could be explained at least a little bit
+
+# Allow custom options for DB:connect for things like persistent 
+  connections, debug, autofree, ssl, etc.  see:
+  http://pear.php.net/manual/en/package.database.db.db-common.setoption.php
+
+# Or should we convert the whole thing over to MDB2?
+
+# Yes (MDB2).  Should also build support for ADOdb.
+
+
+TODO LOW PRIORITY:
+
+# Test and fix up internal autoresponder functionality - it has
+  not been looked at since the development of v3.0 began and may
+  no longer work
+  This includes the vadmin_autores_notify_do() function in vadmin_start.php
+  which is hooked into left_main_after (which may or may not even work
+  under 1.5.2+).... is this really needed?  If so, does it work?
+  (UPDATE: I think I might have done this...?  I think it works, no?)
+
+# It is easier to understand the code if we use $VADMIN_DOMAIN in all our
+  module code (and anywhere else!) instead of assigning $domain to the
+  same thing because of possible confusion with SquirrelMail's global
+  $domain variable.  For now, we'll leave this alone because it's working
+  well, but at some point I'd like to go back and clean this out.
+
+# Allow the addition of special, customizable domain limit fields
+  to be added to the domain limits fields (but then they will
+  also need to be *USED* when modifying the corresponding fields!
+  Maybe we can only allow the addition of custom limits for custom
+  fields (defined in backend config) that are of certain types (int?
+  char fields limited to length or char sets?)
+
+# Somewhere make a development note that, amongst other things,
+  if a new backend is developed, custom user account fields can
+  be specified in the backend by having a configuration setting
+  in its config file called "custom_user_account_fields"....
+  Of course, the backend needs to be aware that the fields may
+  be configured and may need to be retrieved from the user data 
+  store, etc....
+  Also, note that custom_field_types and custom_field_descriptions
+  are used as well.  See the SQL backend config file for examples.
+
+# Does a copy of the README file in includes/suid directory
+  or at least a pointer to it belong in the docs dir?
+
+# (Do we really want to do this at all?) If pwd column is not 
+  encrypted, the plugin currently will still say "encrypted" when 
+  showing the password to end user.  We could add a config setting 
+  that says "passwords are encrypted" to turn that on and off, but 
+  for now, just leave it this way; we don't really want to show 
+  passwords, do we?  Do we?
+
+# Idea: the "Customize this domain" menu should be the place to add
+  things like editing config settings for other plugins (What other
+  plugins?  What exactly does this mean?)  Note that to do this, 
+  another plugin merely needs to hook into the vadmin_menu_make_linkmenu
+  hook, and add something to $args in this case:
+   global $LVL, $MOD, $ACT;
+   if ($LVL == 'admin' && $MOD == 'email' && $ACT == 'prefmain')
+
+# (SQL backend:) provide example script to create domain_administration 
+  table??  or just schema right?) (or will we leave the exercise to 
+  the user and they can friggin' pay me if they are not skilled enough
+  to do this on their own; this plugin requires some amount of
+  knowledge to set up completely anyway)
+
+# (SQL backend:) provide example script (or just schema, right?) to 
+  create the entire functioning email database and the corresponding 
+  vadmin settings to serve as a full example(?).  Maybe it would be 
+  better to provide some links to HOWTO docs to create similar setups??  
+  (or will we leave the exercise to the user and they can darn well
+  pay me if they are not skilled enough to do this on their own; 
+  this plugin requires some amount of knowledge to set up 
+  completely anyway)
+
+# Would there be any other types of custom fields that we could facilitate?
+
+
+PROBABLY DON'T NEED TO OR DON'T WANT TO DO:
+
+# when selecting multiple users to delete from the "listall"
+  screen, the checkboxes are built with names like: "delusers[josh]"
+  and when the backend catchall is configured as a blank value,
+  you have "delusers[]", which turns into $delusers[0], so it 
+  is thusly confused with a user account "0".... so we avoid 
+  the whole trouble by disallowing the checkbox for the catchall
+  alias - let the user delete it manually if they need to.....
+  it may be possible to build them as "delusers[]" with "value='_'"
+  and "delusers[josh]" with "value='_josh'" so we get the true
+  username from the value, removing the leading underscore -
+  this is a bit convoluted and the delusers code is embedded enough
+  that it's not worth the trouble for now just to be able to include
+  the catchall alias in a mass delete
+
+# There are some really anal checks for existing users in the mass
+  user add/mass user delete screens (both confirmation and when
+  performing the actions) that hit the backend to verify each and
+  every user along the way, which is probably very inefficient if,
+  for example, adding really really big lists of users.... could remove
+  these things, but won't for now since that kind of event is pretty
+  rare
+
+# Really need to re-read the module code carefully for the haphazard way
+  that $userid, $usertitle and similar variables are used.  Many times 
+  they are used interchangeably, and this should really be cleaned up,
+  but it won't be no fun (even some other parts of the code may suffer from this)
+  The problem with this may be more evident on systems where usernames
+  don't contain @domain in them.
+
+# "Templatization" of Vadmin has yet to commence, and may not be pretty
+  given the way the modules have some tight code/HTML integration 
+  The plugin may (does according to recent tests) work under SM 1.5.2+ 
+  as is, but its output is technically not acceptable in that framework
+
+# search user functionality on top of the lookup specific user screen 
+  (uhhh, what does this mean? I think this is already implemented with
+  the wildcard-enabled user search)
+
+# implement custom account fields (huh? isn't this done? - yes, in the SQL
+  backend, it functions as expected... unless this was supposed to mean
+  something different??)
+
+# See below - this idea is off the plate for now
+  Should we move use of the backend proxy mechanism into the "core"
+  of Vadmin?  Currently, calls to vadmin_suid_script_exec() have to
+  be coded into a backend (such as the sql one) if the backend desires
+  to use it.  However, we could simply call it in the core so anyone
+  can add their own extra script calls for any action.  If not needed,
+  the value in vadmin.conf.php for system_manager_proxy.path can be
+  left empty.  The problem is that there is no "core" so to speak.
+  Commands are typically called directly from a module, such as listdomain(),
+  and it's not a good idea to go find each such call in the modules and
+  add a call to vadmin_suid_script_exec() after it.  Instead, we should
+  convert those calls to vadmin_listdomain() and then we can define a
+  "core" proxy function for listdomain.  That is, inside vadmin_listdomain(),
+  we'd have:  { $ret = listdomain(); $suid_ret = vadmin_suid_script_exec();
+  return $ret; }.  This way, we could also add another call to a function
+  that calls an optional fsockopen to a different kind of backend too.
+  UPDATE: thought this was a good idea, but decided not to do it after
+  looking at the sql backend - mostly it would work fine, but keeping calls
+  to the suid proxy in the backend means the backend can use it more flexibly
+  and make a decision not to use it under certain circumstances - it's 
+  more flexible this way.  Plus I don't have to go spend a bunch of time 
+  messing up the core code that works pretty good right now.  :)
+  
+
+# Useful link: GNU dbm (gdbm) programming
+               http://mibai.tec.u-ryukyu.ac.jp/cgi-bin/info2www?(gdbm)
+  Berkeley DB:
+               http://www.oracle.com/technology/documentation/berkeley-db/db/index.html
+
+
+

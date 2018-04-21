@@ -1,0 +1,32 @@
+﻿User-Agent: Googlebot
+IS
+Allow: /
+
+
+
+User-Agent: Googlebot-Mobile
+
+Allow: /
+
+
+
+User-Agent: Googlebot-Image
+
+Allow: /
+
+
+
+User-Agent: Mediapartners-Google
+
+Allow: /
+
+
+
+User-Agent: Adsbot-Google
+
+Allow: /
+
+
+
+Sitemap: http://otih-oith.us.to/sitemap.xml
+

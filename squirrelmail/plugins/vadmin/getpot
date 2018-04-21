@@ -1,0 +1,18 @@
+#!/bin/sh
+XGETTEXT_OPTIONS="--no-wrap --keyword=_ -keyword=N_ --default-domain=vadmin --no-location --add-comments=i18n"
+
+# Allows controlling language option
+# (gettext v.0.10.40 = -C, gettext 0.11+ = -L php).
+if [ $SM_OLD_GETTEXT ] ; then
+ XGETTEXT_OPTIONS="${XGETTEXT_OPTIONS} -C";
+else
+ XGETTEXT_OPTIONS="${XGETTEXT_OPTIONS} -L php";
+fi
+
+xgettext ${XGETTEXT_OPTIONS} *.php --output=vadmin.pot
+xgettext ${XGETTEXT_OPTIONS} -j ./includes/*.php --output=vadmin.pot
+xgettext ${XGETTEXT_OPTIONS} -j ./includes/*.inc --output=vadmin.pot
+xgettext ${XGETTEXT_OPTIONS} -j ./includes/sql/*.inc --output=vadmin.pot
+xgettext ${XGETTEXT_OPTIONS} -j ./includes/vmailmgr/*.inc --output=vadmin.pot
+xgettext ${XGETTEXT_OPTIONS} -j ./modules/admin/*.mod --output=vadmin.pot
+xgettext ${XGETTEXT_OPTIONS} -j ./modules/user/*.mod --output=vadmin.pot

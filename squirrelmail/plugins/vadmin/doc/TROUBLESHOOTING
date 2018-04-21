@@ -1,0 +1,84 @@
+TROUBLESHOOTING:
+----------------
+
+Below are common issues that occur when attempting to install and
+configure Vadmin.
+
+
+* When attempting to initiate certain actions, this error appears:
+
+    SYSTEM ERROR: Failed to create /var/lib/vadmin/example.org.db!. We
+    apologize for the inconvenience, but your request cannot be completed
+    at this time. Please contact your system administrator if the problem
+    persists.
+
+  Inspect your web server logs for any error that may have occurred
+  when this message appeared on screen.  You may need to increase
+  you PHP error logging level by adjusting php.ini and restarting your
+  web server.  See also: 
+  http://squirrelmail.org/docs/admin/admin-12.html#errormessages
+  Any errors found herein should help you determine the source of
+  the problem and should be included in any help requests you make.
+
+  Verify that the web server has write permissions on /var/lib/vadmin
+  (or whatever location you set "[storage]->dir" to in conf/vadmin.conf.
+  There are example commands for how to do so in the INSTALL document
+  in the CONFIGURATION section.  When testing whether or not this is 
+  the cause of the issue, you may give read, write and execute 
+  permission to everybody (chmod 777), but you MUST do this only 
+  temporarily - just long enough to test.  When asking for help about
+  this kind of problem, you should be prepared to show the ownership
+  and permissions of this directory.
+
+  The other cause of this problem can be that your PHP build does not 
+  include support for the database flavor that you have configured
+  in "[storage]->flavor" in conf/vadmin.conf.  Please check your PHP
+  dba support (using phpinfo() is one good way; see: 
+  http://www.php.net/manual/function.phpinfo.php or see:
+  http://squirrelmail.org/wiki/TestPHPSettings) and verify that you 
+  have configured the db flavor correctly.  Also, please refer to
+  the REQUIREMENTS section of the Vadmin INSTALL document, as well as
+  http://php.net/manual/ref.dba.php
+
+
+* When attempting to initiate certain actions, this error appears:
+
+    SYSTEM ERROR: Could not open /var/lib/vadmin/example.org.db for 
+    writing. We apologize for the inconvenience, but your request cannot 
+    be completed at this time. Please contact your system administrator 
+    if the problem persists.
+
+  Please refer to the tips immediately above.
+
+
+* When some configuration settings are changed, they do not seem to
+  take effect.
+
+  This may happen either when testing your configuration with 
+  SquirrelMail's src/configtest.php or when using the Vadmin interface 
+  itself.
+
+  Vadmin caches its configuration settings for better performance.  If
+  you make any configuration changes, you must log out and back in again
+  to see them take effect.  When using the SquirrelMail configuration 
+  test utility (src/configtest.php), this may mean you need to close the
+  browser before re-running the configuration test to see your changes
+  take effect.
+
+  Advanced usage: you can open the config_parser.php file and change
+  the return value of the use_cached_vadmin_vars() function to FALSE,
+  which will make Vadmin reload all configuration settings for every
+  page request.  This should only be used for debugging and testing and
+  should be changed again when you put your system into regular usage.
+
+
+* When changing a user password to something insecure, an "Override"
+  button appears, but it does not do anything.
+
+  This will happen when the password contains illegal characters, and
+  this condition can never be overridden because such a password could
+  corrupt the system.  If the "Override" button does not work for any
+  other kind of password problem, then this is a bug that needs to be
+  reported to the developers.
+
+
