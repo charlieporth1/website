@@ -1,1 +1,1 @@
-http://otih-oith.us.to/
+./urllist.txt

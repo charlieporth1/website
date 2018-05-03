@@ -1,1 +1,1 @@
-#php
+./action_page.php
