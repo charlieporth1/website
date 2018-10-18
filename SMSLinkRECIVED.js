@@ -50,7 +50,7 @@ app.get('/IT-WAS-ME/WAS-ME-LOGIN-NO', (req, res) => {
             console.log('stderr: ', stderr);
             // | passwd $userschanged --stdin
             //w | awk '{print $1}'  | grep -v 'USER'  |  tail -n +2
-            exec(" export userschanged=$(w | awk '{print $1}'  | grep -v 'USER'  | sed -n '2p'); echo $userschanged"+ authCode +" |  chpasswd")
+            exec(" export userschanged=$(w | awk '{print $1}'  | grep -v 'USER'  | sed -n '2p'); echo $userschanged:"+ authCode +" |  chpasswd")
                 .then(function (result) {
                     var stdout = result.stdout;
                     var stderr = result.stderr;
