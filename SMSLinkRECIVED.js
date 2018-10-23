@@ -1,3 +1,4 @@
+#!/usr/bin/parallel --shebang-wrap /usr/bin/node
 const app = require("express")();
 app.set("view engine", "pug");
 
