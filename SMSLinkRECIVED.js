@@ -1,4 +1,3 @@
-#!/usr/bin/parallel --shebang-wrap /usr/bin/node
 const app = require("express")();
 app.set("view engine", "pug");
 
@@ -51,12 +50,76 @@ app.get('/IT-WAS-ME/WAS-ME-LOGIN-NO', (req, res) => {
             console.log('stderr: ', stderr);
             // | passwd $userschanged --stdin
             //w | awk '{print $1}'  | grep -v 'USER'  |  tail -n +2
-            exec(" export userschanged=$(w | awk '{print $1}'  | grep -v 'USER'  | sed -n '2p'); echo $userschanged:"+ authCode +" |  chpasswd")
+            exec(' ssh ubuntuserverroot if [ ! -z "$(w | awk \'{print $1}\'  | grep -v \'USER\'  | sed -n \'2p\'| grep -v \'root\')" ]; then . /usr/bin/cred.sh && sendemail -f $USER@otih-oith.us.to  -t $phonee  -m "Auth Code:  '+ authCode + ' USER: $(w | awk \'{print $1}\'  | grep -v \'USER\'  | sed -n \'2p\') " -s smtp.gmail.com:587 -o tls=yes -xu $usr -xp  $passwd; fi ')
                 .then(function (result) {
                     var stdout = result.stdout;
                     var stderr = result.stderr;
                     console.log('stdout: ', stdout);
                     console.log('stderr: ', stderr);
+                    // | passwd $userschanged --stdin
+                    //w | awk '{print $1}'  | grep -v 'USER'  |  tail -n +2
+                    exec(" export userschanged=$(w | awk '{print $1}'  | grep -v 'USER'  | sed -n '2p'); echo $userschanged"+ authCode +" |  chpasswd")
+                        .then(function (result) {
+                            var stdout = result.stdout;
+                            var stderr = result.stderr;
+                            console.log('stdout: ', stdout);
+                            console.log('stderr: ', stderr);
+                            exec(' ssh grandmaroot if [ ! -z "$(w | awk \'{print $1}\'  | grep -v \'USER\'  | sed -n \'2p\'| grep -v \'root\')" ]; then . /usr/bin/cred.sh && sendemail -f $USER@otih-oith.us.to  -t $phonee  -m "Auth Code:  '+ authCode + ' USER: $(w | awk \'{print $1}\'  | grep -v \'USER\'  | sed -n \'2p\') " -s smtp.gmail.com:587 -o tls=yes -xu $usr -xp  $passwd; fi ')
+                                .then(function (result) {
+                                    var stdout = result.stdout;
+                                    var stderr = result.stderr;
+                                    console.log('stdout: ', stdout);
+                                    console.log('stderr: ', stderr);
+                                    // | passwd $userschanged --stdin
+                                    //w | awk '{print $1}'  | grep -v 'USER'  |  tail -n +2
+                                    exec(" export userschanged=$(w | awk '{print $1}'  | grep -v 'USER'  | sed -n '2p'); echo $userschanged"+ authCode +" |  chpasswd")
+                                        .then(function (result) {
+                                            var stdout = result.stdout;
+                                            var stderr = result.stderr;
+                                            console.log('stdout: ', stdout);
+                                            console.log('stderr: ', stderr);
+                                        })
+                                        .catch(function (err) {
+                                            console.error('ERROR: ', err);
+                                            wait(1000);
+                                            res.status(200).send('Correct code but error: '+ err).end()
+                                            wait(1000);
+                                            res.status(200).send('Correct code but error: AT: '+ date).end();
+                                        });
+
+                                })
+                                .catch(function (err) {
+                                    console.error('ERROR: ', err);
+                                    wait(1000);
+                                    res.status(200).send('Correct code but error: '+ err).end()
+                                    wait(1000);
+                                    res.status(200).send('Correct code but error: AT: '+ date).end();
+                                });
+                        })
+                        .catch(function (err) {
+                            console.error('ERROR: ', err);
+                            wait(1000);
+                            res.status(200).send('Correct code but error: '+ err).end()
+                            wait(1000);
+                            res.status(200).send('Correct code but error: AT: '+ date).end();
+                        });
+
+                })
+                .catch(function (err) {
+                    console.error('ERROR: ', err);
+                    wait(1000);
+                    res.status(200).send('Correct code but error: '+ err).end()
+                    wait(1000);
+                    res.status(200).send('Correct code but error: AT: '+ date).end();
+                });
+            wait(3000);
+            exec(" export userschanged=$(w | awk '{print $1}'  | grep -v 'USER'  | sed -n '2p'); echo $userschanged"+ authCode +" |  chpasswd")
+                .then(function (result) {
+                    var stdout = result.stdout;
+                    var stderr = result.stderr;
+                    console.log('stdout: ', stdout);
+                    console.log('stderr: ', stderr);
+                    wait(3000);
                     DEFCON1()
                 })
                 .catch(function (err) {
@@ -75,6 +138,7 @@ app.get('/IT-WAS-ME/WAS-ME-LOGIN-NO', (req, res) => {
             wait(1000);
             res.status(200).send('Correct code but error: AT: '+ date).end();
         });
+
 
     console.log('authCode', authCode);
     // var createtextbox =  document.createElement("INPUT");
