@@ -1,6 +1,8 @@
 Sitemap: http://otih-oith.us.to/sitemap.txt
 User-agent: *
 Disallow: /secret
+Disallow: /SMSCOMMANDS/
+Disallow: /SMSLinkRECIVED.js
 Allow: /*
 User-Agent: Googlebot
 Disallow: /secret 
