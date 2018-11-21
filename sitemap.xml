@@ -1,83 +1,9 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-<url>
-  <loc>http://otih-oith.us.to/</loc>
-  <lastmod>2017-06-10T01:52:29+00:00</lastmod>
-  <priority>1.00</priority>
-</url>
-<url>
-  <loc>http://otih-oith.us.to/view/otih-oith/home.html</loc>
-  <lastmod>2017-06-10T01:50:14+00:00</lastmod>
-  <priority>0.80</priority>
-</url>
-<url>
-  <loc>http://otih-oith.us.to/view/otih-oith/media.html</loc>
-  <lastmod>2017-04-18T13:07:24+00:00</lastmod>
-  <priority>0.80</priority>
-</url>
-<url>
-  <loc>http://otih-oith.us.to/view/otih-oith/media/github.html</loc>
-  <lastmod>2017-06-10T01:48:04+00:00</lastmod>
-  <priority>0.80</priority>
-</url>
-<url>
-  <loc>http://otih-oith.us.to/view/otih-oith/media/youtube.html</loc>
-  <lastmod>2017-04-18T10:07:00+00:00</lastmod>
-  <priority>0.80</priority>
-</url>
-<url>
-  <loc>http://otih-oith.us.to/view/otih-oith/media/twitter.html</loc>
-  <lastmod>2017-04-18T10:06:38+00:00</lastmod>
-  <priority>0.80</priority>
-</url>
-<url>
-  <loc>http://otih-oith.us.to/view/otih-oith/media/google-plus.html</loc>
-  <lastmod>2017-04-18T10:06:16+00:00</lastmod>
-  <priority>0.80</priority>
-</url>
-<url>
-  <loc>http://otih-oith.us.to/view/otih-oith/biography.html</loc>
-  <lastmod>2017-06-10T01:51:38+00:00</lastmod>
-  <priority>0.80</priority>
-</url>
-<url>
-  <loc>http://otih-oith.us.to/view/otih-oith/contact.html</loc>
-  <lastmod>2017-05-03T13:46:04+00:00</lastmod>
-  <priority>0.80</priority>
-</url>
-<url>
-  <loc>http://otih-oith.us.to/view/otih-oith/apps.html</loc>
-  <lastmod>2017-04-18T10:07:24+00:00</lastmod>
-  <priority>0.80</priority>
-</url>
-<url>
-  <loc>http://otih-oith.us.to/view/otih-oith/apps/windows-phonedesktop.html</loc>
-  <lastmod>2017-04-18T13:10:02+00:00</lastmod>
-  <priority>0.80</priority>
-</url>
-<url>
-  <loc>http://otih-oith.us.to/view/otih-oith/apps/chrome-os.html</loc>
-  <lastmod>2017-04-18T13:08:36+00:00</lastmod>
-  <priority>0.80</priority>
-</url>
-<url>
-  <loc>http://otih-oith.us.to/view/otih-oith/apps/ubuntudebainkali.html</loc>
-  <lastmod>2017-04-18T13:14:48+00:00</lastmod>
-  <priority>0.80</priority>
-</url>
-<url>
-  <loc>http://otih-oith.us.to/view/otih-oith/apps/android.html</loc>
-  <lastmod>2017-04-18T13:08:10+00:00</lastmod>
-  <priority>0.80</priority>
-</url>
-<url>
-  <loc>http://otih-oith.us.to/view/otih-oith/github.html</loc>
-  <lastmod>2017-06-10T01:48:08+00:00</lastmod>
-  <priority>0.64</priority>
-</url>
-<url>
-  <loc>http://otih-oith.us.to/view/otih-oith/media/other-websites.html</loc>
-  <lastmod>2017-04-04T00:35:00+00:00</lastmod>
-  <priority>0.64</priority>
-</url>
+  <url>
+    <loc>http://otih-oith.us.to/</loc>
+  </url>
+  <url>
+    <loc>http://otih-oith.us.to/sitemap.txt</loc>
+  </url>
 </urlset>
