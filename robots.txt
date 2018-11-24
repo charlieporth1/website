@@ -3,6 +3,9 @@ User-agent: *
 Disallow: /secret
 Disallow: /SMSCOMMANDS/
 Disallow: /SMSLinkRECIVED.js
+Disallow: /IT-WAS-ME/*
+Disallow: /IT-WAS-ME/WAS-ME-LOGIN-NO
+Disallow: /IT-WAS-ME/WAS-ME-LOGIN-YES
 Allow: /*
 User-Agent: Googlebot
 Disallow: /secret 
